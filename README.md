@@ -54,7 +54,7 @@ See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- Nob library by tsoding on [YouTube](https://youtu.be/eRt7vhosgKE?si=ezTCFRf_g_SCQTVR), [GitHub](https://github.com/tsoding/nob.h)
+- Inspired by tsoding's nob.h on [YouTube](https://youtu.be/eRt7vhosgKE?si=ezTCFRf_g_SCQTVR), [GitHub](https://github.com/tsoding/nob.h)
 
 ## ✏️ Notes
 
