@@ -114,15 +114,21 @@
                 FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                 NULL, dwError, 0, buffer, sizeof buffer, NULL);
             
-                if (dwSize == 0)
-                    printf("%s:%d: unknown error in %s: %lu\n",
-                        file, line, func, dwError);
-                else if (args.note == NULL)
-                    printf("%s:%d: error in %s: %s\n",
-                        file, line, func, buffer);
-                else
-                    printf("%s:%d: error in %s: %s (note: %s)\n",
-                        file, line, func, buffer, args.note);
+            if (dwSize == 0)
+            {
+                printf("%s:%d: unknown error in %s: %lu\n",
+                    file, line, func, dwError);
+            }
+            else if (args.note == NULL)
+            {
+                printf("%s:%d: error in %s: %s\n",
+                    file, line, func, buffer);
+            }
+            else
+            {
+                printf("%s:%d: error in %s: %s (note: %s)\n",
+                    file, line, func, buffer, args.note);
+            }
         }
 
         static inline
@@ -359,5 +365,4 @@
         PNK_NOMAKE_PROJECT_HOMEPAGE    = project_args->HOMEPAGE_URL;
     }
 
-#undef PNK_LINKAGE
 #endif /* PNK_NOMAKE_SOURCE */

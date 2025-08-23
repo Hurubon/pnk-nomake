@@ -19,6 +19,4 @@ int main(int argc, char** argv)
     printf("NOMAKE_PROJECT_VERSION: %s\n", PNK_NOMAKE_PROJECT_VERSION);
     printf("NOMAKE_PROJECT_DESCRIPTION: %s\n", PNK_NOMAKE_PROJECT_DESCRIPTION);
     printf("NOMAKE_PROJECT_HOMEPAGE: %s\n", PNK_NOMAKE_PROJECT_HOMEPAGE);
-    
-    // PnkNomakeTarget main = pnk_nomake_add_executable("main.c");
 }
