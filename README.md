@@ -25,7 +25,7 @@ int main(int argc, char** argv)
 
     pnk_nomake_project("pnk-nomake",
         .VERSION      = "0.3.0",
-        .DESCRIPTION  = "No description.",
+        .DESCRIPTION  = "A header-only C library for building C projects.",
         .HOMEPAGE_URL = "https://github.com/Hurubon/pnk-nomake.git",
         .LANGUAGES    = "C");
     
