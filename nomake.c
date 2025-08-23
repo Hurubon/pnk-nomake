@@ -11,7 +11,7 @@ int main(int argc, char** argv)
     pnk_nomake_self_rebuild(argc, argv);
 
     pnk_nomake_project("pnk-nomake",
-        .VERSION      = "0.1.0",
+        .VERSION      = "0.3.0",
         .DESCRIPTION  = "No description.",
         .HOMEPAGE_URL = "https://github.com/Hurubon/pnk-nomake.git",
         .LANGUAGES    = "C");

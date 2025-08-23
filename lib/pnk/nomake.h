@@ -57,6 +57,12 @@
             name,                                 \
             &(PnkNomakeInternalProjectArgs)       \
                 { 0, __VA_ARGS__ })
+
+    #define pnk_nomake_build_target(target, ...)  \
+        pnk_nomake_internal_build_target(         \
+            target,                               \
+            (PnkNomakeBuildTargetArgs)            \
+                { 0, __VA_ARGS__ })
 /*----------------------------------------------------------------------------**
 
     Type declarations
@@ -76,6 +82,10 @@
         char const* HOMEPAGE_URL;
         char const* LANGUAGES;
     } PnkNomakeInternalProjectArgs;
+
+    typedef struct PnkNomakeBuildTargetArgs {
+        bool run;
+    } PnkNomakeBuildTargetArgs;
 
     typedef struct PnkNomakeStringBuilder {
         char* data;
@@ -209,6 +219,14 @@
     {
         builder->data[builder->size] = '\0';
         return builder->data;
+    }
+
+    static inline
+    void
+    pnk_nomake_string_builder_reuse(
+        PnkNomakeStringBuilder* const builder)
+    {
+        builder->size = 0;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -493,20 +511,24 @@
 
     static inline
     void
-    pnk_nomake_build_target(
-        PnkNomakeTarget const* const target)
+    pnk_nomake_internal_build_target(
+        PnkNomakeTarget const*   const target,
+        PnkNomakeBuildTargetArgs const args)
     {
         PnkNomakeStringBuilder builder = pnk_nomake_string_builder_acquire(128);
 
         #if defined(__GNUC__) || defined(__clang__)
             pnk_nomake_string_builder_append(&builder, PNK_NOMAKE_C_COMPILER);
+
             pnk_nomake_string_builder_append(&builder, "-o");
             pnk_nomake_string_builder_append_without_space(
                 &builder, PNK_NOMAKE_BINARY_DIRECTORY);
             pnk_nomake_string_builder_append_without_space(
                 &builder, "/");
             pnk_nomake_string_builder_append(&builder, target->name);
+
             pnk_nomake_string_builder_append(&builder, target->sources);
+
             if (target->include != NULL)
             {
                 pnk_nomake_string_builder_append(&builder, "-I");
@@ -517,23 +539,22 @@
         #endif
 
         pnk_nomake_spawn_process(pnk_nomake_string_builder_c_string(&builder));
-        pnk_nomake_string_builder_release(&builder);
-    }
 
-    static inline
-    void
-    pnk_nomake_run_target(
-        PnkNomakeTarget const* const target)
-    {
-        PnkNomakeStringBuilder builder = pnk_nomake_string_builder_acquire(128);
-        pnk_nomake_string_builder_append_without_space(
-            &builder, PNK_NOMAKE_BINARY_DIRECTORY);
-        pnk_nomake_string_builder_append_without_space(
-            &builder, "/");
-        pnk_nomake_string_builder_append_without_space(
-            &builder, target->name);
-        pnk_nomake_spawn_process(
-            pnk_nomake_string_builder_c_string(&builder), .async = true);
+        if (args.run)
+        {
+            pnk_nomake_string_builder_reuse(&builder);
+
+            pnk_nomake_string_builder_append_without_space(
+                &builder, PNK_NOMAKE_BINARY_DIRECTORY);
+            pnk_nomake_string_builder_append_without_space(
+                &builder, "/");
+            pnk_nomake_string_builder_append_without_space(
+                &builder, target->name);
+            
+            pnk_nomake_spawn_process(
+                pnk_nomake_string_builder_c_string(&builder), .async = true);
+        }
+
         pnk_nomake_string_builder_release(&builder);
     }
 
