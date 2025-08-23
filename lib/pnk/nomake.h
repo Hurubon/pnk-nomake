@@ -3,226 +3,361 @@
 #ifndef PNK_NOMAKE_HEADER
 #define PNK_NOMAKE_HEADER
 
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
+    #include <stdbool.h>
+/*----------------------------------------------------------------------------**
 
-#if  defined(__GNUC__)
-    #define PNK_NOMAKE_C_COMPILER "gcc"
-#elif defined(__clang__)
-    #define PNK_NOMAKE_C_COMPILER "clang"
-#else
-    #error "Unknown compiler."
-#endif
+    Macros
 
-static char const* PNK_NOMAKE_PROJECT_NAME;
-static char const* PNK_NOMAKE_PROJECT_VERSION;
-static char const* PNK_NOMAKE_PROJECT_DESCRIPTION;
-static char const* PNK_NOMAKE_PROJECT_HOMEPAGE;
+**----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------**
+        Constants
+**----------------------------------------------------------------------------*/
+    #ifndef PNK_NOMAKE_SOURCE_DIRECTORY
+        #define PNK_NOMAKE_SOURCE_DIRECTORY "."
+    #endif
 
-typedef struct PnkNomakeTarget
-{
-    // TODO
-} PnkNomakeTarget;
+    #ifndef PNK_NOMAKE_BINARY_DIRECTORY
+        #define PNK_NOMAKE_BINARY_DIRECTORY "."
+    #endif
 
-typedef struct PnkNomakeProjectInfo
-{
-    char const* VERSION;
-    char const* DESCRIPTION;
-    char const* HOMEPAGE_URL;
-    // char const* LANGUAGES;
-} PnkNomakeProjectInfo;
+    #ifndef PNK_NOMAKE_C_COMPILER
+        #if   defined(__GNUC__)
+            #define PNK_NOMAKE_C_COMPILER "gcc"
+        #elif defined(__clang__)
+            #define PNK_NOMAKE_C_COMPILER "clang"
+        #elif defined(_MSC_VER)
+            #define PNK_NOMAKE_C_COMPILER "cl"
+        #else
+            #error "Unknown compiler."
+        #endif
+    #endif
+/*----------------------------------------------------------------------------**
+        Functions
+**----------------------------------------------------------------------------*/
+    #define pnk_nomake_print_last_error(...)      \
+        pnk_nomake_internal_print_last_error(     \
+            __FILE__, __LINE__, __func__,         \
+            (PnkNomakeInternalPrintLastErrorArgs) \
+                { .dummy = 0, __VA_ARGS__ })
 
-#define PNK_NOMAKE_SELF_REBUILD(argc, argv) \
-    pnk_nomake_internal_self_rebuild(argc, argv, __FILE__)
+    #define pnk_nomake_spawn_process(cmd, ...)    \
+        pnk_nomake_internal_spawn_process(        \
+            cmd,                                  \
+            (PnkNomakeInternalSpawnProcessArgs)   \
+                { .dummy = 0, __VA_ARGS__ })
 
-#define PNK_NOMAKE_PRINT_LAST_ERROR() \
-    pnk_nomake_internal_print_last_error(NULL, __FILE__, __LINE__, __func__)
 
-#define PNK_NOMAKE_PRINT_LAST_ERROR_NOTE(note) \
-    pnk_nomake_internal_print_last_error(note, __FILE__, __LINE__, __func__)
 
-#define pnk_nomake_project(name, ...) \
-    pnk_nomake_internal_project(name, &(PnkNomakeProjectInfo){ __VA_ARGS__ })
+    #define pnk_nomake_self_rebuild(argc, argv)   \
+        pnk_nomake_internal_self_rebuild(         \
+            argc, argv, __FILE__)
 
-void pnk_nomake_internal_self_rebuild (int         argc,
-                                       char**      argv,
-                                       char const* source_file);
+    #define pnk_nomake_project(name, ...)         \
+        pnk_nomake_internal_project(              \
+            name,                                 \
+            &(PnkNomakeInternalProjectArgs)       \
+                { .dummy = 0, __VA_ARGS__ })
+/*----------------------------------------------------------------------------**
+
+    Type declarations
+
+**----------------------------------------------------------------------------*/
+    typedef struct PnkNomakeInternalPrintLastErrorArgs {
+        char dummy;
+        char const* note;
+    } PnkNomakeInternalPrintLastErrorArgs;
+
+    typedef struct PnkNomakeInternalSpawnProcessArgs {
+        char dummy;
+        bool async;
+    } PnkNomakeInternalSpawnProcessArgs;
+
+    typedef struct PnkNomakeInternalProjectArgs {
+        char        dummy;
+        char const* VERSION;
+        char const* DESCRIPTION;
+        char const* HOMEPAGE_URL;
+    } PnkNomakeInternalProjectArgs;
 
 #endif /* PNK_NOMAKE_HEADER */
 
-#if defined(PNK_NOMAKE_IMPLEMENTATION)
+#if defined(PNK_NOMAKE_SOURCE)
 
-#ifdef _WIN32
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <stddef.h>
 
-    #include <windows.h>
+    #include <time.h>
+    #include <assert.h>
+    #include <string.h>
 
-    // TODO: Better error reporting?
-    static inline
-    void
-    pnk_nomake_internal_print_last_error(
-        char const* const restrict note,
-        char const* const restrict file,
-        int         const          line,
-        char const* const restrict func)
-    {
-        // FIXME: static? global?
-        char buffer[1024];
-        DWORD dwError = GetLastError();
-        DWORD dwSize  = FormatMessageA(
-            FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL, dwError, 0, buffer, sizeof buffer, NULL);
+    static char const* PNK_NOMAKE_PROJECT_NAME;
+    static char const* PNK_NOMAKE_PROJECT_VERSION;
+    static char const* PNK_NOMAKE_PROJECT_DESCRIPTION;
+    static char const* PNK_NOMAKE_PROJECT_HOMEPAGE;
 
-        if (dwSize == 0)
+    #ifdef _WIN32
+        
+        #include <windows.h>
+
+        static inline
+        void
+        pnk_nomake_internal_print_last_error(
+            char const*                         const restrict file,
+            int                                 const          line,
+            char const*                         const restrict func,
+            PnkNomakeInternalPrintLastErrorArgs const          args)
         {
+            char buffer[512];
+            DWORD dwError = GetLastError();
+            DWORD dwSize  = FormatMessageA(
+                FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, dwError, 0, buffer, sizeof buffer, NULL);
+            
+                if (dwSize == 0)
+                    printf("%s:%d: unknown error in %s: %lu\n",
+                        file, line, func, dwError);
+                else if (args.note == NULL)
+                    printf("%s:%d: error in %s: %s\n",
+                        file, line, func, buffer);
+                else
+                    printf("%s:%d: error in %s: %s (note: %s)\n",
+                        file, line, func, buffer, args.note);
+        }
 
-            printf("%s:%d: Unknown error in %s: %lu\n", file, line, func, dwError);
-        }
-        else if (note == NULL)
+        static inline
+        void
+        pnk_nomake_append_exe(
+            char*       const restrict buffer,
+            size_t      const          buffer_size,
+            char const* const restrict path)
         {
-            printf("%s:%d: error in %s: %s\n", file, line, func, buffer);
-        }
-        else
-        {
-            printf("%s:%d: error in %s: %s (%s)\n", file, line, func, buffer, note);
-        }
-    }
+            size_t      const path_size = strlen(path);
+            char const* const extension = path + path_size - 4;
 
-    static inline
-    time_t
-    pnk_nomake_get_last_write_time(
-        char const* const path)
-    {
-        WIN32_FILE_ATTRIBUTE_DATA data;
-        if (GetFileAttributesExA(path, GetFileExInfoStandard, &data))
-        {
-            ULARGE_INTEGER number;
-            number.LowPart  = data.ftLastWriteTime.dwLowDateTime;
-            number.HighPart = data.ftLastWriteTime.dwHighDateTime;
+            assert(path_size + 4 < buffer_size && "Insufficient buffer size.");
 
-            // The number of seconds between
-            //      UTC:1601/01/01 (Windows epoch) and
-            //      UTC:1970/01/01 (Unix epoch).
-            long long unsigned const epoch_difference = 11644473600ULL;
-            // Windows counts in increments of 100ns, not seconds.
-            long long unsigned const seconds = number.QuadPart / 10000000ULL;
+            strncpy(buffer, path, buffer_size);
 
-            return seconds - epoch_difference;
+            if (strcmp(extension, ".exe") != 0)
+            {
+                strcpy(buffer + path_size, ".exe");
+            }
         }
-        else
+
+        static inline
+        time_t
+        pnk_nomake_get_last_write_time(
+            char const* const path)
         {
-            return 0;
+            WIN32_FILE_ATTRIBUTE_DATA data;
+            if (GetFileAttributesExA(path, GetFileExInfoStandard, &data))
+            {
+                ULARGE_INTEGER number;
+                number.LowPart  = data.ftLastWriteTime.dwLowDateTime;
+                number.HighPart = data.ftLastWriteTime.dwHighDateTime;
+
+                // The number of seconds between
+                //      UTC:1601/01/01 (Windows epoch) and
+                //      UTC:1970/01/01 (Unix epoch).
+                long long unsigned const epoch_difference = 11644473600ULL;
+                // Windows counts in increments of 100ns, not seconds.
+                long long unsigned const seconds = number.QuadPart / 10000000ULL;
+
+                return seconds - epoch_difference;
+            }
+            else
+            {
+                return 0;
+            }
         }
-    }
+
+        static inline
+        bool
+        pnk_nomake_delete_file(
+            char const* const path)
+        {
+            return DeleteFile(path);
+        }
+
+        static inline
+        bool
+        pnk_nomake_rename(
+            char const* const restrict old_name,
+            char const* const restrict new_name)
+        {
+            // NOTE: To match the behaviour on POSIX.
+            return MoveFileEx(old_name, new_name, MOVEFILE_REPLACE_EXISTING);
+        }
+
+        static inline
+        void
+        pnk_nomake_internal_spawn_process(
+            char*                             const cmd,
+            PnkNomakeInternalSpawnProcessArgs const args)
+        {
+            STARTUPINFO         siStartupInfo = { .cb = sizeof siStartupInfo };
+            PROCESS_INFORMATION piProcessInfo = { 0 };
+
+            if (!CreateProcessA(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL,
+                    &siStartupInfo, &piProcessInfo))
+            {
+                pnk_nomake_print_last_error();
+                exit(EXIT_FAILURE);
+            }
+
+            if (args.async == false)
+            {
+                WaitForSingleObject(piProcessInfo.hProcess, INFINITE);
+            }
+
+            CloseHandle(piProcessInfo.hProcess);
+            CloseHandle(piProcessInfo.hThread);
+        }
+
+    #else
+
+        #include <unistd.h>
+        #include <sys/stat.h>
+
+        static inline
+        void
+        pnk_nomake_internal_print_last_error(
+            char const*                         const restrict file,
+            int                                 const          line,
+            char const*                         const restrict func,
+            PnkNomakeInternalPrintLastErrorArgs const          args)
+        {
+            char buffer[512];
+            assert(strerror_r(errno, buffer, sizeof buffer) == 0 &&
+                "strerror_r failed - insufficient buffer size?");
+
+            if (note == NULL)
+            {
+                printf("%s:%d: error in %s: %s\n",
+                    file, line, func, buffer);
+            }
+            else
+            {
+                printf("%s:%d: error in %s: %s (note: %s)\n",
+                    file, line, func, buffer, note);
+            }
+        }
+
+        static inline
+        void
+        pnk_nomake_append_exe(
+            char*       const restrict buffer,
+            size_t      const          buffer_size,
+            char const* const restrict path)
+        {
+            size_t const path_size = strlen(path);
+
+            assert(path_size < buffer_size && "Insufficient buffer size.");
+
+            strncpy(buffer, path, buffer_size);
+        }
+
+        static inline
+        time_t
+        pnk_nomake_get_last_write_time(
+            char const* const path)
+        {
+            struct stat data;
+
+            if (stat(path, &data))
+                return data.st_mtime;
+            else
+                return 0;
+        }
+
+        static inline
+        bool
+        pnk_nomake_delete_file(
+            char const* const path)
+        {
+            return !unlink(path);
+        }
+
+        static inline
+        bool
+        pnk_nomake_rename(
+            char const* const restrict old_name,
+            char const* const restrict new_name)
+        {
+            return !rename(old_name, new_name);
+        }
+
+        static inline
+        void
+        pnk_nomake_internal_spawn_process(
+            char const*                       const cmd,
+            PnkNomakeInternalSpawnProcessArgs const args)
+        {
+            assert(false && "Not implemented yet.");
+        }
+
+    #endif /* _WIN32 */
 
     static inline
     enum PnkNomakeInternalNeedsRebuildResult {
-        PNK_NOMAKE_NEEDS_REBUILD_ERROR_PATH_TOO_LONG,
-        PNK_NOMAKE_NEEDS_REBUILD_ERROR_BINARY_FILE,
-        PNK_NOMAKE_NEEDS_REBUILD_ERROR_SOURCE_FILE,
-        PNK_NOMAKE_NEEDS_REBUILD_NAY,
-        PNK_NOMAKE_NEEDS_REBUILD_YAY,
+        PNK_NOMAKE_NEEDS_REBUILD_ERROR_BINARY_FILE = -2,
+        PNK_NOMAKE_NEEDS_REBUILD_ERROR_SOURCE_FILE = -1,
+        PNK_NOMAKE_NEEDS_REBUILD_NAY = false,
+        PNK_NOMAKE_NEEDS_REBUILD_YAY = true,
     }
-    pnk_nomake_internal_needs_rebuild(
-        // FIXME: Can this be restrict?
-        char const* const argv_zero,
-        char const* const source_path)
-    {        
-        char binary_path[1024];
-        strncpy(binary_path, argv_zero, sizeof binary_path);
-
-        char const* const extension = argv_zero + strlen(argv_zero) - 4;
-        if (strcmp(extension, ".exe") != 0)
-        {
-            strcpy(binary_path + strlen(argv_zero), ".exe");
-        }
+    pnk_nomake_needs_rebuild(
+        char const* const restrict argv_zero,
+        char const* const restrict source_path)
+    {
+        char binary_path[512];
+        pnk_nomake_append_exe(binary_path, sizeof binary_path, argv_zero);
 
         time_t const binary_time = pnk_nomake_get_last_write_time(binary_path);
         time_t const source_time = pnk_nomake_get_last_write_time(source_path);
         if (binary_time == 0) return PNK_NOMAKE_NEEDS_REBUILD_ERROR_BINARY_FILE;
         if (source_time == 0) return PNK_NOMAKE_NEEDS_REBUILD_ERROR_SOURCE_FILE;
 
-        if (difftime(binary_time, source_time) < 0)
-        {
-            return PNK_NOMAKE_NEEDS_REBUILD_YAY;
-        }
-        else
-        {
-            return PNK_NOMAKE_NEEDS_REBUILD_NAY;
-        }
+        return difftime(binary_time, source_time) < 0;
     }
 
+    static inline
     void
     pnk_nomake_internal_self_rebuild(
         int         const          argc,
         char**      const restrict argv,
         char const* const restrict source_file)
     {
-        switch (pnk_nomake_internal_needs_rebuild(argv[0], source_file))
+        switch (pnk_nomake_needs_rebuild(argv[0], source_file))
         {
             case PNK_NOMAKE_NEEDS_REBUILD_ERROR_BINARY_FILE:
-                PNK_NOMAKE_PRINT_LAST_ERROR_NOTE(argv[0]);
+                pnk_nomake_print_last_error(.note = argv[0]);
                 exit(EXIT_FAILURE);
-                break;
             case PNK_NOMAKE_NEEDS_REBUILD_ERROR_SOURCE_FILE:
-                PNK_NOMAKE_PRINT_LAST_ERROR_NOTE(source_file);
+                pnk_nomake_print_last_error(.note = source_file);
                 exit(EXIT_FAILURE);
-                break;
             case PNK_NOMAKE_NEEDS_REBUILD_NAY:
-                DeleteFile("nomake.old");
+                pnk_nomake_delete_file(PNK_NOMAKE_BINARY_DIRECTORY"/nomake.old");
                 return;
         }
 
-        MoveFileEx("nomake.exe", "nomake.old", MOVEFILE_REPLACE_EXISTING);
-
-        STARTUPINFO         siStartupInfo = { .cb = sizeof siStartupInfo, };
-        PROCESS_INFORMATION piProcessInfo = { 0 };
-
-        // TODO: Add PNK_NOMAKE_C_COMPILER customization point.
-        if (!CreateProcessA(
-            NULL, PNK_NOMAKE_C_COMPILER " nomake.c -o nomake.exe",
-            NULL, NULL, TRUE, 0, NULL, NULL,
-            &siStartupInfo, &piProcessInfo))
-        {
-            PNK_NOMAKE_PRINT_LAST_ERROR();
-            exit(EXIT_FAILURE);
-        }
-
-        WaitForSingleObject(piProcessInfo.hProcess, INFINITE);
-
-        CloseHandle(piProcessInfo.hProcess);
-        CloseHandle(piProcessInfo.hThread);
-        
-        ZeroMemory(&piProcessInfo, sizeof piProcessInfo);
-        ZeroMemory(&siStartupInfo, sizeof siStartupInfo);
-        siStartupInfo.cb = sizeof siStartupInfo;
-
-        if (!CreateProcessA(
-            NULL, "nomake.exe",
-            NULL, NULL, TRUE, 0, NULL, NULL,
-            &siStartupInfo, &piProcessInfo))
-        {
-            PNK_NOMAKE_PRINT_LAST_ERROR_NOTE("nomake.exe");
-            exit(EXIT_FAILURE);
-        }
-
-        CloseHandle(piProcessInfo.hProcess);
-        CloseHandle(piProcessInfo.hThread);
+        pnk_nomake_rename(argv[0], PNK_NOMAKE_BINARY_DIRECTORY"/nomake.old");
+        pnk_nomake_spawn_process(PNK_NOMAKE_C_COMPILER" -o nomake nomake.c");
+        pnk_nomake_spawn_process("nomake", .async = true);
         exit(EXIT_SUCCESS);
     }
 
-#endif /* _WIN32 */
+    static inline
+    void
+    pnk_nomake_internal_project(
+        char const*                         const restrict project_name,
+        PnkNomakeInternalProjectArgs const* const restrict project_args)      
+    {
+        PNK_NOMAKE_PROJECT_NAME = project_name;
+        PNK_NOMAKE_PROJECT_VERSION     = project_args->VERSION;
+        PNK_NOMAKE_PROJECT_DESCRIPTION = project_args->DESCRIPTION;
+        PNK_NOMAKE_PROJECT_HOMEPAGE    = project_args->HOMEPAGE_URL;
+    }
 
-void
-pnk_nomake_internal_project(
-    char const*                 const restrict project_name,
-    PnkNomakeProjectInfo const* const restrict project_info)
-{
-    PNK_NOMAKE_PROJECT_NAME = project_name;
-    PNK_NOMAKE_PROJECT_VERSION     = project_info->VERSION;
-    PNK_NOMAKE_PROJECT_DESCRIPTION = project_info->DESCRIPTION;
-    PNK_NOMAKE_PROJECT_HOMEPAGE    = project_info->HOMEPAGE_URL;
-}
-
-#endif /* PNK_NOMAKE_IMPLEMENTATION */
+#undef PNK_LINKAGE
+#endif /* PNK_NOMAKE_SOURCE */
