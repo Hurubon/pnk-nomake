@@ -11,11 +11,14 @@ int main(int argc, char** argv)
         .VERSION      = "0.1.0",
         .DESCRIPTION  = "No description.",
         .HOMEPAGE_URL = "https://www.github.com/Hurubon/pnk-nomake");
-    
+
+    puts("Test.");
+    /*
     printf("NOMAKE_PROJECT_NAME: %s\n", PNK_NOMAKE_PROJECT_NAME);
     printf("NOMAKE_PROJECT_VERSION: %s\n", PNK_NOMAKE_PROJECT_VERSION);
     printf("NOMAKE_PROJECT_DESCRIPTION: %s\n", PNK_NOMAKE_PROJECT_DESCRIPTION);
     printf("NOMAKE_PROJECT_HOMEPAGE: %s\n", PNK_NOMAKE_PROJECT_HOMEPAGE);
+    */
     
     // PnkNomakeTarget main = pnk_nomake_add_executable("main.c");
 }
