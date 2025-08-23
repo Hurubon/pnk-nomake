@@ -38,13 +38,13 @@
         pnk_nomake_internal_print_last_error(     \
             __FILE__, __LINE__, __func__,         \
             (PnkNomakeInternalPrintLastErrorArgs) \
-                { .dummy = 0, __VA_ARGS__ })
+                { 0, __VA_ARGS__ })
 
     #define pnk_nomake_spawn_process(cmd, ...)    \
         pnk_nomake_internal_spawn_process(        \
             cmd,                                  \
             (PnkNomakeInternalSpawnProcessArgs)   \
-                { .dummy = 0, __VA_ARGS__ })
+                { 0, __VA_ARGS__ })
 
 
 
@@ -56,28 +56,40 @@
         pnk_nomake_internal_project(              \
             name,                                 \
             &(PnkNomakeInternalProjectArgs)       \
-                { .dummy = 0, __VA_ARGS__ })
+                { 0, __VA_ARGS__ })
 /*----------------------------------------------------------------------------**
 
     Type declarations
 
 **----------------------------------------------------------------------------*/
     typedef struct PnkNomakeInternalPrintLastErrorArgs {
-        char dummy;
         char const* note;
     } PnkNomakeInternalPrintLastErrorArgs;
 
     typedef struct PnkNomakeInternalSpawnProcessArgs {
-        char dummy;
         bool async;
     } PnkNomakeInternalSpawnProcessArgs;
 
     typedef struct PnkNomakeInternalProjectArgs {
-        char        dummy;
         char const* VERSION;
         char const* DESCRIPTION;
         char const* HOMEPAGE_URL;
+        char const* LANGUAGES;
     } PnkNomakeInternalProjectArgs;
+
+    typedef struct PnkNomakeStringBuilder {
+        char* data;
+        size_t size;
+        size_t capacity;
+    } PnkNomakeStringBuilder;
+
+
+
+    typedef struct PnkNomakeTarget {
+        char const* name;
+        char const* sources;
+        char const* include;
+    } PnkNomakeTarget;
 
 #endif /* PNK_NOMAKE_HEADER */
 
@@ -96,6 +108,112 @@
     static char const* PNK_NOMAKE_PROJECT_DESCRIPTION;
     static char const* PNK_NOMAKE_PROJECT_HOMEPAGE;
 
+    // NOTE: https://oeis.org/A029744
+    static size_t const pnk_nomake_sizes_table[] = {
+        1   , 2   , 3    , 4    , 6    , 8    , 12   , 16,
+        24  , 32  , 48   , 64   , 96   , 128  , 192  , 256,
+        384 , 512 , 768  , 1024 , 1536 , 2048 , 3072 , 4096,
+        6144, 8192, 12288, 16384, 24576, 32768, 49152, 65536
+    };
+    static size_t const pnk_nomake_sizes_table_size =
+        sizeof(pnk_nomake_sizes_table) / sizeof(*pnk_nomake_sizes_table);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    //                    String builder utility functions                    //
+    ////////////////////////////////////////////////////////////////////////////
+    static inline
+    size_t
+    pnk_nomake_round_up_to_A029744(
+        size_t const v)
+    {
+        for (int i = 0; i < pnk_nomake_sizes_table_size; i += 1)
+        {
+            if (v <= pnk_nomake_sizes_table[i])
+            {
+                return pnk_nomake_sizes_table[i];
+            }
+        }
+        return v;
+    }
+
+    static inline
+    PnkNomakeStringBuilder
+    pnk_nomake_string_builder_acquire(
+        size_t const size)
+    {
+        size_t const rounded_size = pnk_nomake_round_up_to_A029744(size);
+
+        PnkNomakeStringBuilder builder;
+        builder.data     = malloc(rounded_size),
+        builder.size     = 0;
+        builder.capacity = rounded_size;
+
+        return builder;
+    }
+
+    static inline
+    void
+    pnk_nomake_string_builder_release(
+        PnkNomakeStringBuilder* const builder)
+    {
+        free(builder->data);
+        memset(builder, 0, sizeof *builder);
+    }
+
+    static inline
+    void
+    pnk_nomake_string_builder_append_without_space(
+        PnkNomakeStringBuilder* const builder,
+        char const*             const string)
+    {
+        if (builder->capacity <= builder->size + strlen(string) + 1)
+        {
+            size_t const new_capacity = pnk_nomake_round_up_to_A029744(
+                builder->size + strlen(string) + 1);
+            builder->data     = realloc(builder->data, new_capacity);
+            builder->capacity = new_capacity;
+        }
+
+        for (size_t i = 0; i < strlen(string); i += 1)
+        {
+            builder->data[builder->size++] = string[i];
+        }
+    }
+    
+    static inline
+    void
+    pnk_nomake_string_builder_append(
+        PnkNomakeStringBuilder* const builder,
+        char const*             const string)
+    {
+        if (builder->capacity <= builder->size + strlen(string) + 2)
+        {
+            size_t const new_capacity = pnk_nomake_round_up_to_A029744(
+                builder->size + strlen(string) + 2);
+            builder->data     = realloc(builder->data, new_capacity);
+            builder->capacity = new_capacity;
+        }
+
+        for (size_t i = 0; i < strlen(string); i += 1)
+        {
+            builder->data[builder->size++] = string[i];
+        }
+
+        builder->data[builder->size++] = ' ';
+    }
+
+    static inline
+    char*
+    pnk_nomake_string_builder_c_string(
+        PnkNomakeStringBuilder* const builder)
+    {
+        builder->data[builder->size] = '\0';
+        return builder->data;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    //                       Internal library functions                       //
+    ////////////////////////////////////////////////////////////////////////////
     #ifdef _WIN32
         
         #include <windows.h>
@@ -327,6 +445,9 @@
         return difftime(binary_time, source_time) < 0;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    //                       External library functions                       //
+    ////////////////////////////////////////////////////////////////////////////
     static inline
     void
     pnk_nomake_internal_self_rebuild(
@@ -347,10 +468,15 @@
                 return;
         }
 
+        PnkNomakeStringBuilder builder = pnk_nomake_string_builder_acquire(128);
+        pnk_nomake_string_builder_append(&builder, PNK_NOMAKE_C_COMPILER" -o");
+        pnk_nomake_string_builder_append(&builder, argv[0]);
+        pnk_nomake_string_builder_append(&builder, source_file);
+
         pnk_nomake_rename(argv[0], PNK_NOMAKE_BINARY_DIRECTORY"/nomake.old");
-        pnk_nomake_spawn_process(PNK_NOMAKE_C_COMPILER" -o nomake nomake.c");
-        pnk_nomake_spawn_process("nomake", .async = true);
-        exit(EXIT_SUCCESS);
+        pnk_nomake_spawn_process(pnk_nomake_string_builder_c_string(&builder));
+        pnk_nomake_spawn_process(argv[0], .async = true);
+        pnk_nomake_string_builder_release(&builder);
     }
 
     static inline
@@ -363,6 +489,52 @@
         PNK_NOMAKE_PROJECT_VERSION     = project_args->VERSION;
         PNK_NOMAKE_PROJECT_DESCRIPTION = project_args->DESCRIPTION;
         PNK_NOMAKE_PROJECT_HOMEPAGE    = project_args->HOMEPAGE_URL;
+    }
+
+    static inline
+    void
+    pnk_nomake_build_target(
+        PnkNomakeTarget const* const target)
+    {
+        PnkNomakeStringBuilder builder = pnk_nomake_string_builder_acquire(128);
+
+        #if defined(__GNUC__) || defined(__clang__)
+            pnk_nomake_string_builder_append(&builder, PNK_NOMAKE_C_COMPILER);
+            pnk_nomake_string_builder_append(&builder, "-o");
+            pnk_nomake_string_builder_append_without_space(
+                &builder, PNK_NOMAKE_BINARY_DIRECTORY);
+            pnk_nomake_string_builder_append_without_space(
+                &builder, "/");
+            pnk_nomake_string_builder_append(&builder, target->name);
+            pnk_nomake_string_builder_append(&builder, target->sources);
+            if (target->include != NULL)
+            {
+                pnk_nomake_string_builder_append(&builder, "-I");
+                pnk_nomake_string_builder_append(&builder, target->include);
+            }
+        #else
+            #error "Unsupported compiler."
+        #endif
+
+        pnk_nomake_spawn_process(pnk_nomake_string_builder_c_string(&builder));
+        pnk_nomake_string_builder_release(&builder);
+    }
+
+    static inline
+    void
+    pnk_nomake_run_target(
+        PnkNomakeTarget const* const target)
+    {
+        PnkNomakeStringBuilder builder = pnk_nomake_string_builder_acquire(128);
+        pnk_nomake_string_builder_append_without_space(
+            &builder, PNK_NOMAKE_BINARY_DIRECTORY);
+        pnk_nomake_string_builder_append_without_space(
+            &builder, "/");
+        pnk_nomake_string_builder_append_without_space(
+            &builder, target->name);
+        pnk_nomake_spawn_process(
+            pnk_nomake_string_builder_c_string(&builder), .async = true);
+        pnk_nomake_string_builder_release(&builder);
     }
 
 #endif /* PNK_NOMAKE_SOURCE */
