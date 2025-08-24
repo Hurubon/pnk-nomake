@@ -17,7 +17,7 @@ Put the nomake.h file somewhere in your project directory.
 #define PNK_NOMAKE_SOURCE_DIRECTORY "."
 
 #define PNK_NOMAKE_SOURCE   // STB-style single-header library
-#include "lib/pnk/nomake.h" // Path to nomake.h
+#include "inc/pnk/nomake.h" // Path to nomake.h
 
 int main(int argc, char** argv)
 {
@@ -26,8 +26,7 @@ int main(int argc, char** argv)
     pnk_nomake_project("pnk-nomake",
         .VERSION      = "0.3.0",
         .DESCRIPTION  = "A header-only C library for building C projects.",
-        .HOMEPAGE_URL = "https://github.com/Hurubon/pnk-nomake.git",
-        .LANGUAGES    = "C");
+        .HOMEPAGE_URL = "https://github.com/Hurubon/pnk-nomake.git");
     
     PnkNomakeTarget main = {
         .name    = "main",
@@ -42,7 +41,7 @@ int main(int argc, char** argv)
 #### Bootstrapping
 
 ```bash
-cc -o nomake nomake.c
+cc -o nomake build.c
 ```
 
 Now that nomake is bootstrapped, you never have to rebuild it again. To build your project, just run `nomake`.
