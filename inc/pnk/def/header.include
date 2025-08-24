@@ -1,0 +1,33 @@
+#ifndef PNK_NOMAKE_HEADER_CONSTANTS_INCLUDE
+#define PNK_NOMAKE_HEADER_CONSTANTS_INCLUDE
+
+#if defined(PNK_NOMAKE_NO_PREFIXES)
+    #define self_rebuild(argc, argv)                                           \
+        pnk_nomake_detail_self_rebuild(argc, argv, __FILE__)
+    #define project(name, ...)                                                 \
+        pnk_nomake_detail_project(name,                                        \
+            &(PnkNomakeInternalProjectArgs) { 0, __VA_ARGS__ })
+    #define build_target(target, ...)                                          \
+        pnk_nomake_detail_build_target(target,                                 \
+            (PnkNomakeInternalBuildTargetArgs) { 0, __VA_ARGS__ })
+#elif defined(PNK_NOMAKE_NO_PNK_PREFIX)
+    #define nomake_self_rebuild(argc, argv)                                    \
+        pnk_nomake_detail_self_rebuild(argc, argv, __FILE__)
+    #define nomake_project(name, ...)                                          \
+        pnk_nomake_detail_project(name,                                        \
+            &(PnkNomakeInternalProjectArgs) { 0, __VA_ARGS__ })
+    #define nomake_build_target(target, ...)                                   \
+        pnk_nomake_detail_build_target(target,                                 \
+            (PnkNomakeInternalBuildTargetArgs) { 0, __VA_ARGS__ })
+#else
+    #define pnk_nomake_self_rebuild(argc, argv)                                \
+        pnk_nomake_detail_self_rebuild(argc, argv, __FILE__)
+    #define pnk_nomake_project(name, ...)                                      \
+        pnk_nomake_detail_project(name,                                        \
+            &(PnkNomakeInternalProjectArgs) { 0, __VA_ARGS__ })
+    #define pnk_nomake_build_target(target, ...)                               \
+        pnk_nomake_detail_build_target(target,                                 \
+            (PnkNomakeInternalBuildTargetArgs) { 0, __VA_ARGS__ })
+#endif
+
+#endif/*PNK_NOMAKE_HEADER_CONSTANTS_INCLUDE*/

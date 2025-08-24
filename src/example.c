@@ -1,8 +1,6 @@
-#include <stdio.h>
-#include <pnk/example.h>
+#include <example.h>
 
-void
-library_function(void)
+void library_function(void)
 {
-    puts("Hello, world!");
+    puts("Hello from the library!");
 }

@@ -1,0 +1,149 @@
+#ifndef PNK_NOMAKE_WIN32_INCLUDE
+#define PNK_NOMAKE_WIN32_INCLUDE
+
+#include <stdio.h>
+#include <stdbool.h>
+
+#include <time.h>
+#include <assert.h>
+#include <string.h>
+
+#include <windows.h>
+
+static inline
+void
+pnk_nomake_internal_print_last_error(
+    char const*                         const file,
+    int                                 const line,
+    char const*                         const func,
+    PnkNomakeInternalPrintLastErrorArgs const args)
+{
+    char const* const ERROR_FORMAT_UNKN = "%s:%d: unknown error in %s: %lu\n";
+    char const* const ERROR_FORMAT_BASE = "%s:%d: error in %s: %s\n";
+    char const* const ERROR_FORMAT_NOTE = "%s:%d: error in %s: %s (note: %s)\n";
+
+    char buffer[PNK_NOMAKE_ERROR_STRING_BUFFER_SIZE];
+    DWORD dwError = GetLastError();
+    DWORD dwSize  = FormatMessageA(
+        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL, dwError, 0, buffer, sizeof buffer, NULL);
+    
+    if (dwSize == 0)
+        fprintf(stderr, ERROR_FORMAT_UNKN, file, line, func, dwError);
+    else if (args.note == NULL)
+        fprintf(stderr, ERROR_FORMAT_BASE, file, line, func, buffer);
+    else
+        fprintf(stderr, ERROR_FORMAT_NOTE, file, line, func, buffer, args.note);
+}
+
+static inline
+void
+pnk_nomake_internal_spawn_process(
+    char*                             const cmd,
+    PnkNomakeInternalSpawnProcessArgs const args)
+{
+    STARTUPINFO         siStartupInfo = { .cb = sizeof siStartupInfo };
+    PROCESS_INFORMATION piProcessInfo = { 0 };
+
+    if (!CreateProcessA(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL,
+            &siStartupInfo, &piProcessInfo))
+    {
+        PNK_NOMAKE_INTERNAL_PRINT_LAST_ERROR();
+        exit(EXIT_FAILURE);
+    }
+
+    if (!args.async)
+    {
+        WaitForSingleObject(piProcessInfo.hProcess, INFINITE);
+    }
+
+    CloseHandle(piProcessInfo.hProcess);
+    CloseHandle(piProcessInfo.hThread);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//                                  File API                                  //
+////////////////////////////////////////////////////////////////////////////////
+static inline
+void
+pnk_nomake_internal_file_append_exe(
+    char*       const buffer,
+    ptrdiff_t   const length,
+    char const* const path)
+{
+    ptrdiff_t   const path_size = strlen(path);
+    char const* const extension = &path[path_size - 4];
+
+    assert(path_size + 4 < length && "Insufficient buffer size.");
+    strcpy(buffer, path);
+    
+    if (strcmp(extension, ".exe") != 0)
+    {
+        strcpy(buffer + path_size, ".exe");
+    }
+}
+
+static inline
+time_t
+pnk_nomake_internal_file_get_last_write_time(
+        char const* const path)
+{
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (GetFileAttributesExA(path, GetFileExInfoStandard, &data))
+    {
+        ULARGE_INTEGER number;
+        number.LowPart  = data.ftLastWriteTime.dwLowDateTime;
+        number.HighPart = data.ftLastWriteTime.dwHighDateTime;
+
+        // The number of seconds between
+        //      UTC:1601/01/01 (Windows epoch) and
+        //      UTC:1970/01/01 (Unix epoch).
+        long long unsigned const epoch_difference = 11644473600ULL;
+        // Windows counts in increments of 100ns, not seconds.
+        long long unsigned const seconds = number.QuadPart / 10000000ULL;
+
+        return seconds - epoch_difference;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+static inline
+bool
+pnk_nomake_internal_file_delete(
+    char const* path)
+{
+    return DeleteFile(path);
+}
+
+static inline
+bool
+pnk_nomake_internal_file_rename(
+    char const* const restrict old_name,
+    char const* const restrict new_name)
+{
+    // NOTE: Matches the behaviour on POSIX.
+    return MoveFileEx(old_name, new_name, MOVEFILE_REPLACE_EXISTING);
+}
+
+static inline
+bool
+pnk_nomake_internal_file_directory_exists(
+    char const* const path)
+{
+    DWORD dwAttributes = GetFileAttributes(path);
+    return dwAttributes != INVALID_FILE_ATTRIBUTES &&
+        (dwAttributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+static inline
+bool
+pnk_nomake_internal_file_directory_create(
+    char const* const name)
+{
+    return CreateDirectory(name, NULL);
+}
+
+#endif/*PNK_NOMAKE_WIN32_INCLUDE*/

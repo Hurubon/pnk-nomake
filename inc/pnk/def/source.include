@@ -1,0 +1,42 @@
+#ifndef PNK_NOMAKE_SOURCE_CONSTANTS_INCLUDE
+#define PNK_NOMAKE_SOURCE_CONSTANTS_INCLUDE
+
+#ifdef PNK_NOMAKE_SOURCE_STATIC
+    #define PNK_LINKAGE static inline
+#else
+    #define PNK_LINKAGE extern
+#endif
+
+#ifndef PNK_NOMAKE_SOURCE_DIRECTORY
+    #define PNK_NOMAKE_SOURCE_DIRECTORY "."
+#endif
+
+#ifndef PNK_NOMAKE_BINARY_DIRECTORY
+    #define PNK_NOMAKE_BINARY_DIRECTORY "."
+#endif
+
+#ifndef PNK_NOMAKE_C_COMPILER
+    #if   defined(__GNUC__)
+        #define PNK_NOMAKE_C_COMPILER "gcc"
+    #elif defined(__clang__)
+        #define PNK_NOMAKE_C_COMPILER "clang"
+    #elif defined(_MSC_VER)
+        #define PNK_NOMAKE_C_COMPILER "cl"
+    #else
+        #error "Unsupported compiler."
+    #endif
+#endif
+
+#define PNK_NOMAKE_INTERNAL_PRINT_ERROR(m)                                     \
+    fprintf(stderr, "%s:%d: error in %s: %s\n",                                \
+        __FILE__, __LINE__, __func__, m)
+
+#define PNK_NOMAKE_INTERNAL_PRINT_LAST_ERROR(...)                              \
+    pnk_nomake_internal_print_last_error(__FILE__, __LINE__, __func__,         \
+        (PnkNomakeInternalPrintLastErrorArgs) { 0, __VA_ARGS__ })
+
+#define PNK_NOMAKE_INTERNAL_SPAWN_PROCESS(cmd, ...)                            \
+    pnk_nomake_internal_spawn_process(cmd,                                     \
+        (PnkNomakeInternalSpawnProcessArgs) { 0, __VA_ARGS__ })
+
+#endif/*PNK_NOMAKE_SOURCE_CONSTANTS_INCLUDE*/
